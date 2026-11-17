@@ -78,6 +78,10 @@
   .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:10px;width:max-content}
   .stepper button{width:44px;height:42px;border:0;background:none;font-size:20px;color:var(--ink)}
   .stepper span{min-width:36px;text-align:center;font-weight:700}
+  .seg{display:flex;gap:8px}
+  .seg button{flex:1;border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px 8px;font-size:15px;font-weight:600;color:var(--sub)}
+  .seg button.on{border-color:var(--green);background:#E6F9EE;color:var(--green-d)}
+  .row2{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--sub);flex-wrap:wrap}
   .done{text-align:center;padding:10px 0}
   .done .ok{width:64px;height:64px;border-radius:50%;background:var(--green);color:#fff;font-size:34px;line-height:64px;margin:6px auto 12px}
   .mycard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px}
@@ -211,7 +215,8 @@ function renderCourses(){
     const pct = c.capacity ? Math.min(100, c.taken / c.capacity * 100) : 0;
     const badge = mineIds.has(c.id) ? '<span class="badge b-mine">已報名</span>'
       : c.state==='full' ? '<span class="badge b-full">額滿</span>'
-      : c.state==='closed' ? '<span class="badge b-closed">已截止</span>' : '';
+      : c.state==='closed' ? '<span class="badge b-closed">已截止</span>'
+      : c.state==='cancelled' ? '<span class="badge b-full">停課</span>' : '';
     html += `<button class="card" data-id="${c.id}">
       <div class="date"><div class="w">${p.m}月</div><div class="d">${p.d}</div><div class="w">週${p.w}</div></div>
       <div class="info">
@@ -233,9 +238,10 @@ $('#mask').onclick = closeSheet;
 function openCourse(c){
   const mine = S.mine.find(r=>r.courseId===c.id && r.status==='confirmed');
   let cta;
-  if (mine) cta = `<button class="btn" disabled>✓ 您已報名（${mine.seats} 位）</button><button class="btn ghost" onclick="switchTab('my');closeSheet()">查看我的報名</button>`;
+  if (mine && c.state==='cancelled') cta = `<button class="btn" disabled>本課程已停課</button>`;
+  else if (mine) cta = `<button class="btn" disabled>✓ 您已報名（${mine.seats} 位）</button><button class="btn ghost" onclick="switchTab('my');closeSheet()">查看我的報名</button>`;
   else if (c.state==='open') cta = `<button class="btn" id="goReg">立即報名</button>`;
-  else cta = `<button class="btn" disabled>${{full:'名額已滿',closed:'已截止報名',ended:'課程已結束'}[c.state]}</button>`;
+  else cta = `<button class="btn" disabled>${{full:'名額已滿',closed:'已截止報名',ended:'課程已結束',cancelled:'本課程已停課'}[c.state]}</button>`;
   openSheet(`
     ${c.image?`<img class="cover" src="${esc(c.image)}" alt="">`:''}
     <h2>${esc(c.title)}</h2>
@@ -261,26 +267,52 @@ function openForm(c){
     <form id="f" autocomplete="on">
       <label>姓名 <i>*</i></label><input name="name" required maxlength="40" value="${esc(saved.name||'')}" placeholder="王小明">
       <label>手機 <i>*</i></label><input name="phone" required type="tel" inputmode="tel" value="${esc(saved.phone||'')}" placeholder="0912345678">
-      <label>Email</label><input name="email" type="email" value="${esc(saved.email||'')}" placeholder="選填，用於寄送講義">
+      <label>Email <i>*</i></label><input name="email" type="email" required inputmode="email" value="${esc(saved.email||'')}" placeholder="name@company.com">
       <label>報名人數</label>
       <div class="stepper"><button type="button" id="mi">−</button><span id="sv">1</span><button type="button" id="pl">＋</button></div>
-      <label>備註</label><textarea name="note" rows="2" maxlength="200" placeholder="選填，例如：需要開收據、飲食需求"></textarea>
+      <label>午餐 <i>*</i></label>
+      <div id="lunch1" class="seg"><button type="button" data-v="0">🍖 葷食</button><button type="button" data-v="1">🥬 素食</button></div>
+      <div id="lunchN" hidden><div class="row2">其中素食 <div class="stepper"><button type="button" id="vmi">−</button><span id="vv">0</span><button type="button" id="vpl">＋</button></div> 位，葷食 <b id="mv">1</b> 位</div></div>
+      <label>發票</label>
+      <div id="inv" class="seg"><button type="button" data-v="0" class="on">不需要</button><button type="button" data-v="1">需要（公司抬頭）</button></div>
+      <div id="invBox" hidden>
+        <label>公司名稱 <i>*</i></label><input name="company" maxlength="60" value="${esc(saved.company||'')}" placeholder="○○股份有限公司">
+        <label>統一編號 <i>*</i></label><input name="taxId" inputmode="numeric" maxlength="8" value="${esc(saved.taxId||'')}" placeholder="8 位數字">
+      </div>
+      <label>備註</label><textarea name="note" rows="2" maxlength="200" placeholder="選填"></textarea>
       <div style="height:16px"></div>
       <button class="btn" id="sub">確認報名</button>
       <button class="btn ghost" type="button" id="back">返回</button>
     </form>`);
-  const upd = () => { $('#sv').textContent = seats; };
+  let veg = null, vegN = 0, inv = false;
+  const upd = () => {
+    $('#sv').textContent = seats;
+    $('#lunch1').hidden = seats > 1; $('#lunchN').hidden = seats === 1;
+    vegN = Math.min(vegN, seats); $('#vv').textContent = vegN; $('#mv').textContent = seats - vegN;
+  };
   $('#mi').onclick = () => { if (seats>1) seats--; upd(); };
   $('#pl').onclick = () => { if (seats<max) seats++; else toast(`最多 ${max} 位`); upd(); };
+  $('#vmi').onclick = () => { if (vegN>0) vegN--; upd(); };
+  $('#vpl').onclick = () => { if (vegN<seats) vegN++; upd(); };
+  $('#lunch1').querySelectorAll('button').forEach(b => b.onclick = () => {
+    veg = +b.dataset.v; $('#lunch1').querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); });
+  $('#inv').querySelectorAll('button').forEach(b => b.onclick = () => {
+    inv = b.dataset.v === '1'; $('#inv').querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b));
+    $('#invBox').hidden = !inv; });
   $('#back').onclick = () => openCourse(c);
   $('#f').onsubmit = async e => {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.target));
     if (!/^[0-9+\-\s]{8,15}$/.test(fd.phone)) return toast('請輸入正確的手機號碼');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fd.email)) return toast('請輸入正確的 Email');
+    if (seats === 1 && veg === null) return toast('請選擇午餐葷食或素食');
+    if (inv && !fd.company.trim()) return toast('請填寫公司名稱');
+    if (inv && !/^\d{8}$/.test(fd.taxId.trim())) return toast('統一編號應為 8 位數字');
+    fd.veg = seats === 1 ? veg : vegN; fd.invoice = inv;
     $('#sub').disabled = true; $('#sub').textContent = '送出中…';
     try {
       await api('register', { ...fd, seats, courseId:c.id });
-      localStorage.setItem('regInfo', JSON.stringify({ name:fd.name, phone:fd.phone, email:fd.email }));
+      localStorage.setItem('regInfo', JSON.stringify({ name:fd.name, phone:fd.phone, email:fd.email, company:fd.company||'', taxId:fd.taxId||'' }));
       await Promise.all([loadMine(), loadCourses()]);
       showDone(c, seats);
     } catch(err) { toast(err.message); $('#sub').disabled=false; $('#sub').textContent='確認報名'; }
@@ -306,19 +338,19 @@ function showDone(c, seats){
 // ---------- 我的報名 ----------
 async function loadMine(){
   try { S.mine = await api('mine'); } catch { S.mine = []; }
-  const n = S.mine.filter(r => r.status==='confirmed' && startMs(r.course) > Date.now()).length;
+  const n = S.mine.filter(r => r.status==='confirmed' && r.course.state!=='cancelled' && startMs(r.course) > Date.now()).length;
   $('#myCnt').hidden = !n; $('#myCnt').textContent = n;
   if (!$('#view-my').hidden) renderMine();
 }
 function renderMine(){
   const now = Date.now();
-  const up = S.mine.filter(r => startMs(r.course) > now && r.status==='confirmed');
+  const up = S.mine.filter(r => startMs(r.course) > now && r.status==='confirmed' && r.course.state!=='cancelled');
   const rest = S.mine.filter(r => !up.includes(r)).reverse();
   if (!S.mine.length) { $('#view-my').innerHTML = `<div class="empty"><div class="big">📝</div>還沒有報名紀錄<br><br><button class="btn" style="width:auto;padding:10px 22px" onclick="switchTab('list')">去看課程</button></div>`; return; }
   const card = r => {
-    const c = r.course, past = startMs(c) <= now, cx = r.status==='cancelled';
+    const c = r.course, past = startMs(c) <= now, stop = c.state==='cancelled', cx = r.status==='cancelled' || stop;
     const days = Math.ceil((startMs(c)-now)/864e5);
-    const when = cx ? '<span class="badge b-closed">已取消</span>' : past ? '<span class="badge b-ended">已結束</span>'
+    const when = stop ? '<span class="badge b-full">已停課</span>' : cx ? '<span class="badge b-closed">已取消</span>' : past ? '<span class="badge b-ended">已結束</span>'
       : `<span class="badge b-mine">${days<=1?'即將上課':days+' 天後'}</span>`;
     return `<div class="mycard ${cx?'cx':past?'past':''}">
       <h3>${esc(c.title)}${when}</h3>
