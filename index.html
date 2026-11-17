@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>課程表</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{
+    --green:#06C755; --green-d:#05a647; --ink:#1F2328; --sub:#5B616B; --mute:#8A8F98;
+    --line:#E8EAED; --bg:#F5F6F7; --card:#fff; --warn:#E8710A; --red:#D93025;
+    --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none!important}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+  button{font:inherit;cursor:pointer}
+  header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);
+    padding:14px 16px 0;padding-top:max(14px,env(safe-area-inset-top))}
+  .hi{display:flex;align-items:center;gap:10px}
+  .hi img{width:36px;height:36px;border-radius:50%;background:var(--line);object-fit:cover}
+  .hi .t{font-size:12px;color:var(--mute)} .hi .n{font-weight:700;font-size:17px}
+  .tabs{display:flex;gap:24px;margin-top:12px}
+  .tab{background:none;border:0;padding:10px 0;color:var(--mute);font-weight:600;border-bottom:3px solid transparent}
+  .tab.on{color:var(--ink);border-color:var(--green)}
+  .tab .cnt{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;
+    background:var(--green);color:#fff;font-size:11px;line-height:18px;text-align:center}
+  main{padding:14px 14px 40px;max-width:640px;margin:0 auto}
+  .banner{display:flex;gap:10px;align-items:center;background:#FFF7E6;border:1px solid #FFE1A8;
+    padding:10px 12px;border-radius:12px;font-size:13px;margin-bottom:12px}
+  .banner button{margin-left:auto;flex:none;background:var(--green);color:#fff;border:0;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin:0 -14px;padding-left:14px;scrollbar-width:none}
+  .chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:5px 12px;font-size:13px}
+  .chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .month{font-size:13px;font-weight:700;color:var(--mute);margin:14px 2px 8px;letter-spacing:.05em}
+  .card{display:flex;gap:14px;background:var(--card);border-radius:var(--r);padding:14px;margin-bottom:10px;
+    border:1px solid var(--line);text-align:left;width:100%;color:inherit}
+  .card:active{transform:scale(.99)}
+  .date{flex:none;width:52px;text-align:center;border-right:1px dashed var(--line);padding-right:12px}
+  .date .d{font-size:26px;font-weight:800;line-height:1.1}
+  .date .w{font-size:12px;color:var(--mute)}
+  .info{flex:1;min-width:0}
+  .info h3{margin:0 0 4px;font-size:16px;line-height:1.35}
+  .meta{font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:1px}
+  .foot{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .bar{flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--green);border-radius:3px}
+  .bar.hot i{background:var(--warn)}
+  .seat{font-size:12px;color:var(--sub);white-space:nowrap}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;vertical-align:2px;margin-left:4px}
+  .b-full{background:#FDECEA;color:var(--red)} .b-closed,.b-ended{background:var(--line);color:var(--mute)}
+  .b-mine{background:#E6F9EE;color:var(--green-d)} .b-tag{background:#EEF1F6;color:var(--sub);margin:0 4px 0 0}
+  .empty{text-align:center;color:var(--mute);padding:60px 20px}
+  .empty .big{font-size:40px}
+  /* bottom sheet */
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20;opacity:0;pointer-events:none;transition:.2s}
+  .mask.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--card);border-radius:20px 20px 0 0;
+    max-height:92vh;overflow:auto;transform:translateY(100%);transition:transform .25s ease;
+    padding:8px 18px calc(20px + env(safe-area-inset-bottom));max-width:640px;margin:0 auto}
+  .sheet.on{transform:none}
+  .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 12px}
+  .sheet h2{margin:0 0 10px;font-size:20px;line-height:1.35}
+  .kv{display:grid;grid-template-columns:52px 1fr;gap:6px 10px;font-size:14px;margin:12px 0}
+  .kv dt{color:var(--mute)} .kv dd{margin:0}
+  .kv a{color:var(--green-d)}
+  .desc{white-space:pre-wrap;font-size:14px;color:var(--sub);background:var(--bg);border-radius:12px;padding:12px;margin:12px 0}
+  .cover{width:calc(100% + 36px);margin:0 -18px 12px;max-height:200px;object-fit:cover;display:block}
+  .btn{width:100%;border:0;border-radius:12px;padding:14px;font-size:16px;font-weight:700;background:var(--green);color:#fff}
+  .btn:disabled{background:#C9CDD2}
+  .btn.ghost{background:var(--bg);color:var(--ink);margin-top:8px}
+  .btn.danger{background:#FDECEA;color:var(--red)}
+  label{display:block;font-size:13px;font-weight:600;color:var(--sub);margin:12px 0 5px}
+  label i{color:var(--red);font-style:normal}
+  input,textarea,select{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--green);border-color:transparent}
+  .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:10px;width:max-content}
+  .stepper button{width:44px;height:42px;border:0;background:none;font-size:20px;color:var(--ink)}
+  .stepper span{min-width:36px;text-align:center;font-weight:700}
+  .done{text-align:center;padding:10px 0}
+  .done .ok{width:64px;height:64px;border-radius:50%;background:var(--green);color:#fff;font-size:34px;line-height:64px;margin:6px auto 12px}
+  .mycard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px}
+  .mycard h3{margin:0 0 6px;font-size:16px}
+  .mycard .acts{display:flex;gap:8px;margin-top:10px}
+  .mycard .acts button{flex:1;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px;font-size:13px;font-weight:600;color:var(--sub)}
+  .mycard.past{opacity:.6}
+  .mycard.cx{opacity:.5} .mycard.cx h3{text-decoration:line-through}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:rgba(31,35,40,.92);color:#fff;
+    padding:10px 16px;border-radius:10px;font-size:14px;z-index:50;opacity:0;transition:.2s;pointer-events:none;max-width:88vw;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%)}
+  .skel{height:96px;border-radius:var(--r);background:linear-gradient(90deg,#eceef0 25%,#f6f7f8 50%,#eceef0 75%);background-size:200% 100%;animation:sk 1.2s infinite;margin-bottom:10px}
+  @keyframes sk{to{background-position:-200% 0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hi">
+    <img id="avatar" alt="">
+    <div><div class="t" id="org">課程表</div><div class="n" id="hello">歡迎！</div></div>
+  </div>
+  <nav class="tabs">
+    <button class="tab on" data-tab="list">課程表</button>
+    <button class="tab" data-tab="my">我的報名<span class="cnt" id="myCnt" hidden></span></button>
+  </nav>
+</header>
+<main>
+  <div id="friendBanner" class="banner" hidden>
+    <span>🔔 加入官方帳號好友，才收得到課前提醒喔</span>
+    <button id="addFriend">加好友</button>
+  </div>
+  <section id="view-list">
+    <div class="chips" id="chips"></div>
+    <div id="courses"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
+  </section>
+  <section id="view-my" hidden></section>
+</main>
+
+<div class="mask" id="mask"></div>
+<div class="sheet" id="sheet"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ======== 只要改這兩行 ========
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyjlpsmhst2lhBknqhg44tPwnXl-kv4czmk_1Vu8pq0Fo_Eg4GBerhZIb8L0k9tUs8q/exec';
+const LIFF_ID = '2012661392-6YUtw0a6';
+// ==============================
+const S = { token:null, profile:null, courses:[], mine:[], tag:'全部', cfg:{} };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const WEEK = ['日','一','二','三','四','五','六'];
+const parseDate = c => { const [y,m,d] = c.date.split('-').map(Number); return {y,m,d,w:WEEK[new Date(y,m-1,d).getDay()]}; };
+const timeStr = c => `${c.start}${c.end ? '–'+c.end : ''}`;
+const fullTime = c => { const p = parseDate(c); return `${p.y}/${p.m}/${p.d}（${p.w}）${timeStr(c)}`; };
+const startMs = c => new Date(`${c.date}T${c.start}:00+08:00`).getTime();
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2400); }
+async function api(action, data={}){
+  let j;
+  try {
+    const r = await fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action, idToken:S.token, ...data }) });
+    j = await r.json();
+  } catch(e) { throw new Error('網路不穩，請稍後再試'); }
+  if (j && j.error) throw new Error(j.error);
+  return j;
+}
+
+// ---------- 初始化 ----------
+(async function init(){
+  const cfgP = api('config').catch(()=>({orgName:'課程表'}));
+  const coursesP = loadCourses();                       // 課程表不用登入就能看
+  if (!LIFF_ID) { S.token = 'dev'; S.profile = { displayName:'測試學員' }; }
+  else {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (liff.isLoggedIn()) {                          // 在 LINE 裡開啟會自動登入
+        S.token = liff.getIDToken();
+        S.profile = await liff.getProfile();
+        liff.getFriendship().then(f => { if(!f.friendFlag) cfgP.then(c => { if (c.botBasicId) $('#friendBanner').hidden = false; }); }).catch(()=>{});
+      }
+    } catch(e) { console.warn('LIFF', e); }
+  }
+  S.cfg = await cfgP;
+  $('#org').textContent = (S.cfg.orgName||'') + '｜課程表';
+  document.title = (S.cfg.orgName||'') + ' 課程表';
+  $('#hello').textContent = S.profile ? `Hi，${S.profile.displayName}` : '全年開課日期';
+  if (S.profile && S.profile.pictureUrl) $('#avatar').src = S.profile.pictureUrl; else $('#avatar').style.display='none';
+  await coursesP;
+  if (S.token) await loadMine();
+  const q = new URLSearchParams(location.search);
+  switchTab(q.get('tab') === 'my' ? 'my' : 'list');
+  const cid = q.get('course');
+  if (cid) { const c = S.courses.find(x=>x.id===cid); if (c) openCourse(c); }
+})();
+// 報名、我的報名才需要 LINE 登入
+function needLogin(){
+  if (S.token) return false;
+  if (window.liff && LIFF_ID) { try { liff.login({ redirectUri: location.href }); } catch(e) { toast('請從 LINE 開啟此頁面'); } }
+  else toast('請從 LINE 開啟此頁面');
+  return true;
+}
+
+$('#addFriend').onclick = () => liff.openWindow({ url:`https://line.me/R/ti/p/${encodeURIComponent(S.cfg.botBasicId)}`, external:false });
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+function switchTab(t){
+  if (t==='my' && needLogin()) return;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab===t));
+  $('#view-list').hidden = t!=='list'; $('#view-my').hidden = t!=='my';
+  if (t==='my') renderMine();
+  window.scrollTo(0,0);
+}
+
+// ---------- 課程表 ----------
+async function loadCourses(){
+  try { S.courses = await api('courses'); }
+  catch { S.courses = []; }
+  renderCourses();
+}
+function renderCourses(){
+  const tags = ['全部', ...new Set(S.courses.map(c=>c.tag).filter(Boolean))];
+  $('#chips').innerHTML = tags.length > 2 ? tags.map(t=>`<button class="chip ${t===S.tag?'on':''}" data-t="${esc(t)}">${esc(t)}</button>`).join('') : '';
+  $('#chips').querySelectorAll('.chip').forEach(b => b.onclick = () => { S.tag=b.dataset.t; renderCourses(); });
+  const list = S.courses.filter(c => startMs(c) > Date.now() && (S.tag==='全部' || c.tag===S.tag));
+  if (!list.length) { $('#courses').innerHTML = `<div class="empty"><div class="big">📅</div>目前沒有開放中的課程<br>新課程上架會再通知您！</div>`; return; }
+  const mineIds = new Set(S.mine.filter(r=>r.status==='confirmed').map(r=>r.courseId));
+  let html = '', lastM = '';
+  for (const c of list) {
+    const p = parseDate(c), m = `${p.y} 年 ${p.m} 月`;
+    if (m !== lastM) { html += `<div class="month">${m}</div>`; lastM = m; }
+    const pct = c.capacity ? Math.min(100, c.taken / c.capacity * 100) : 0;
+    const badge = mineIds.has(c.id) ? '<span class="badge b-mine">已報名</span>'
+      : c.state==='full' ? '<span class="badge b-full">額滿</span>'
+      : c.state==='closed' ? '<span class="badge b-closed">已截止</span>' : '';
+    html += `<button class="card" data-id="${c.id}">
+      <div class="date"><div class="w">${p.m}月</div><div class="d">${p.d}</div><div class="w">週${p.w}</div></div>
+      <div class="info">
+        <h3>${c.tag?`<span class="badge b-tag">${esc(c.tag)}</span>`:''}${esc(c.title)}${badge}</h3>
+        <div class="meta"><span>🕐 ${timeStr(c)}</span>${c.location?`<span>📍 ${esc(c.location)}</span>`:''}${c.instructor?`<span>👤 ${esc(c.instructor)}</span>`:''}</div>
+        <div class="foot"><div class="bar ${c.remaining<=3?'hot':''}"><i style="width:${pct}%"></i></div>
+          <span class="seat">${c.state==='open' ? `剩 ${c.remaining} 位` : `${c.taken}/${c.capacity}`}</span></div>
+      </div></button>`;
+  }
+  $('#courses').innerHTML = html;
+  $('#courses').querySelectorAll('.card').forEach(b => b.onclick = () => openCourse(S.courses.find(c=>c.id===b.dataset.id)));
+}
+
+// ---------- 底部面板 ----------
+function openSheet(html){ $('#sheetBody').innerHTML = html; $('#mask').classList.add('on'); $('#sheet').classList.add('on'); $('#sheet').scrollTop=0; }
+function closeSheet(){ $('#mask').classList.remove('on'); $('#sheet').classList.remove('on'); }
+$('#mask').onclick = closeSheet;
+
+function openCourse(c){
+  const mine = S.mine.find(r=>r.courseId===c.id && r.status==='confirmed');
+  let cta;
+  if (mine) cta = `<button class="btn" disabled>✓ 您已報名（${mine.seats} 位）</button><button class="btn ghost" onclick="switchTab('my');closeSheet()">查看我的報名</button>`;
+  else if (c.state==='open') cta = `<button class="btn" id="goReg">立即報名</button>`;
+  else cta = `<button class="btn" disabled>${{full:'名額已滿',closed:'已截止報名',ended:'課程已結束'}[c.state]}</button>`;
+  openSheet(`
+    ${c.image?`<img class="cover" src="${esc(c.image)}" alt="">`:''}
+    <h2>${esc(c.title)}</h2>
+    <dl class="kv">
+      <dt>時間</dt><dd>${fullTime(c)}</dd>
+      ${c.location?`<dt>地點</dt><dd>${esc(c.location)}${c.mapUrl?` · <a href="${esc(c.mapUrl)}" target="_blank">地圖</a>`:''}</dd>`:''}
+      ${c.instructor?`<dt>講師</dt><dd>${esc(c.instructor)}</dd>`:''}
+      <dt>費用</dt><dd>${c.price?`NT$ ${Number(c.price).toLocaleString()}`:'免費'}</dd>
+      <dt>名額</dt><dd>${c.capacity} 位（剩 ${c.remaining} 位）</dd>
+      ${c.deadline?`<dt>截止</dt><dd>${esc(c.deadline)}</dd>`:''}
+    </dl>
+    ${c.description?`<div class="desc">${esc(c.description)}</div>`:''}
+    ${cta}`);
+  const g = $('#goReg'); if (g) g.onclick = () => { if (!needLogin()) openForm(c); };
+}
+
+function openForm(c){
+  const saved = JSON.parse(localStorage.getItem('regInfo')||'{}');
+  let seats = 1; const max = Math.min(c.remaining, 10);
+  openSheet(`
+    <h2>報名｜${esc(c.title)}</h2>
+    <div style="font-size:13px;color:var(--sub)">${fullTime(c)}</div>
+    <form id="f" autocomplete="on">
+      <label>姓名 <i>*</i></label><input name="name" required maxlength="40" value="${esc(saved.name||'')}" placeholder="王小明">
+      <label>手機 <i>*</i></label><input name="phone" required type="tel" inputmode="tel" value="${esc(saved.phone||'')}" placeholder="0912345678">
+      <label>Email</label><input name="email" type="email" value="${esc(saved.email||'')}" placeholder="選填，用於寄送講義">
+      <label>報名人數</label>
+      <div class="stepper"><button type="button" id="mi">−</button><span id="sv">1</span><button type="button" id="pl">＋</button></div>
+      <label>備註</label><textarea name="note" rows="2" maxlength="200" placeholder="選填，例如：需要開收據、飲食需求"></textarea>
+      <div style="height:16px"></div>
+      <button class="btn" id="sub">確認報名</button>
+      <button class="btn ghost" type="button" id="back">返回</button>
+    </form>`);
+  const upd = () => { $('#sv').textContent = seats; };
+  $('#mi').onclick = () => { if (seats>1) seats--; upd(); };
+  $('#pl').onclick = () => { if (seats<max) seats++; else toast(`最多 ${max} 位`); upd(); };
+  $('#back').onclick = () => openCourse(c);
+  $('#f').onsubmit = async e => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target));
+    if (!/^[0-9+\-\s]{8,15}$/.test(fd.phone)) return toast('請輸入正確的手機號碼');
+    $('#sub').disabled = true; $('#sub').textContent = '送出中…';
+    try {
+      await api('register', { ...fd, seats, courseId:c.id });
+      localStorage.setItem('regInfo', JSON.stringify({ name:fd.name, phone:fd.phone, email:fd.email }));
+      await Promise.all([loadMine(), loadCourses()]);
+      showDone(c, seats);
+    } catch(err) { toast(err.message); $('#sub').disabled=false; $('#sub').textContent='確認報名'; }
+  };
+}
+
+function gcalUrl(c){
+  const s = new Date(startMs(c)), e = new Date(c.end ? new Date(`${c.date}T${c.end}:00+08:00`) : startMs(c)+2*3600e3);
+  const f = d => d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&' + new URLSearchParams({
+    text:c.title, dates:`${f(s)}/${f(e)}`, location:c.location||'', details:(c.description||'').slice(0,500) });
+}
+function showDone(c, seats){
+  openSheet(`<div class="done"><div class="ok">✓</div><h2>報名成功！</h2>
+    <p style="color:var(--sub);font-size:14px;margin:0 0 6px">${esc(c.title)}<br>${fullTime(c)}・${seats} 位</p>
+    <p style="color:var(--mute);font-size:13px;margin:0 0 18px">報名確認已傳到 LINE 聊天室，課前會自動提醒您 🔔</p>
+    <button class="btn" id="cal">加入 Google 行事曆</button>
+    <button class="btn ghost" id="close">完成</button></div>`);
+  $('#cal').onclick = () => window.liff && liff.isInClient?.() ? liff.openWindow({url:gcalUrl(c), external:true}) : window.open(gcalUrl(c));
+  $('#close').onclick = () => { closeSheet(); if (window.liff && liff.isInClient?.()) {} };
+}
+
+// ---------- 我的報名 ----------
+async function loadMine(){
+  try { S.mine = await api('mine'); } catch { S.mine = []; }
+  const n = S.mine.filter(r => r.status==='confirmed' && startMs(r.course) > Date.now()).length;
+  $('#myCnt').hidden = !n; $('#myCnt').textContent = n;
+  if (!$('#view-my').hidden) renderMine();
+}
+function renderMine(){
+  const now = Date.now();
+  const up = S.mine.filter(r => startMs(r.course) > now && r.status==='confirmed');
+  const rest = S.mine.filter(r => !up.includes(r)).reverse();
+  if (!S.mine.length) { $('#view-my').innerHTML = `<div class="empty"><div class="big">📝</div>還沒有報名紀錄<br><br><button class="btn" style="width:auto;padding:10px 22px" onclick="switchTab('list')">去看課程</button></div>`; return; }
+  const card = r => {
+    const c = r.course, past = startMs(c) <= now, cx = r.status==='cancelled';
+    const days = Math.ceil((startMs(c)-now)/864e5);
+    const when = cx ? '<span class="badge b-closed">已取消</span>' : past ? '<span class="badge b-ended">已結束</span>'
+      : `<span class="badge b-mine">${days<=1?'即將上課':days+' 天後'}</span>`;
+    return `<div class="mycard ${cx?'cx':past?'past':''}">
+      <h3>${esc(c.title)}${when}</h3>
+      <div class="meta"><span>🕐 ${fullTime(c)}</span>${c.location?`<span>📍 ${esc(c.location)}</span>`:''}<span>👤 ${esc(r.name)}・${r.seats} 位</span></div>
+      ${!past && !cx ? `<div class="acts">${c.mapUrl?`<button data-map="${esc(c.mapUrl)}">📍 導航</button>`:''}<button data-cal="${r.id}">📅 行事曆</button><button data-cx="${r.id}">取消報名</button></div>`:''}
+    </div>`;
+  };
+  $('#view-my').innerHTML = (up.length?`<div class="month">即將上課</div>${up.map(card).join('')}`:'') +
+    (rest.length?`<div class="month">歷史紀錄</div>${rest.map(card).join('')}`:'');
+  $('#view-my').querySelectorAll('[data-cx]').forEach(b => b.onclick = () => askCancel(S.mine.find(r=>r.id===b.dataset.cx)));
+  $('#view-my').querySelectorAll('[data-cal]').forEach(b => b.onclick = () => { const c=S.mine.find(r=>r.id===b.dataset.cal).course;
+    window.liff && liff.isInClient?.() ? liff.openWindow({url:gcalUrl(c), external:true}) : window.open(gcalUrl(c)); });
+  $('#view-my').querySelectorAll('[data-map]').forEach(b => b.onclick = () => window.liff && liff.isInClient?.() ? liff.openWindow({url:b.dataset.map, external:true}) : window.open(b.dataset.map));
+}
+function askCancel(r){
+  openSheet(`<h2>確定取消報名？</h2><p style="color:var(--sub);font-size:14px">${esc(r.course.title)}<br>${fullTime(r.course)}</p>
+    <p style="color:var(--mute);font-size:13px">取消後名額會釋出給其他同學，如需再參加請重新報名。</p>
+    <button class="btn danger" id="yes">確定取消</button><button class="btn ghost" id="no">再想想</button>`);
+  $('#no').onclick = closeSheet;
+  $('#yes').onclick = async () => {
+    $('#yes').disabled = true;
+    try { await api('cancel', { id:r.id }); closeSheet(); toast('已取消報名');
+      await Promise.all([loadMine(), loadCourses()]); renderMine(); }
+    catch(e){ toast(e.message); $('#yes').disabled=false; }
+  };
+}
+</script>
+</body>
+</html>
