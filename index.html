@@ -239,7 +239,7 @@ function openCourse(c){
   const mine = S.mine.find(r=>r.courseId===c.id && r.status==='confirmed');
   let cta;
   if (mine && c.state==='cancelled') cta = `<button class="btn" disabled>本課程已停課</button>`;
-  else if (mine) cta = `<button class="btn" disabled>✓ 您已報名（${mine.seats} 位）</button><button class="btn ghost" onclick="switchTab('my');closeSheet()">查看我的報名</button>`;
+  else if (mine) cta = `<button class="btn" disabled>✓ 您已報名</button><button class="btn ghost" onclick="switchTab('my');closeSheet()">查看我的報名</button>`;
   else if (c.state==='open') cta = `<button class="btn" id="goReg">立即報名</button>`;
   else cta = `<button class="btn" disabled>${{full:'名額已滿',closed:'已截止報名',ended:'課程已結束',cancelled:'本課程已停課'}[c.state]}</button>`;
   openSheet(`
@@ -260,7 +260,7 @@ function openCourse(c){
 
 function openForm(c){
   const saved = JSON.parse(localStorage.getItem('regInfo')||'{}');
-  let seats = 1; const max = Math.min(c.remaining, 10);
+  const seats = 1;
   openSheet(`
     <h2>報名｜${esc(c.title)}</h2>
     <div style="font-size:13px;color:var(--sub)">${fullTime(c)}</div>
@@ -268,11 +268,8 @@ function openForm(c){
       <label>姓名 <i>*</i></label><input name="name" required maxlength="40" value="${esc(saved.name||'')}" placeholder="王小明">
       <label>手機 <i>*</i></label><input name="phone" required type="tel" inputmode="tel" value="${esc(saved.phone||'')}" placeholder="0912345678">
       <label>Email <i>*</i></label><input name="email" type="email" required inputmode="email" value="${esc(saved.email||'')}" placeholder="name@company.com">
-      <label>報名人數</label>
-      <div class="stepper"><button type="button" id="mi">−</button><span id="sv">1</span><button type="button" id="pl">＋</button></div>
       <label>午餐 <i>*</i></label>
       <div id="lunch1" class="seg"><button type="button" data-v="0">🍖 葷食</button><button type="button" data-v="1">🥬 素食</button></div>
-      <div id="lunchN" hidden><div class="row2">其中素食 <div class="stepper"><button type="button" id="vmi">−</button><span id="vv">0</span><button type="button" id="vpl">＋</button></div> 位，葷食 <b id="mv">1</b> 位</div></div>
       <label>發票</label>
       <div id="inv" class="seg"><button type="button" data-v="0" class="on">不需要</button><button type="button" data-v="1">需要（公司抬頭）</button></div>
       <div id="invBox" hidden>
@@ -284,16 +281,7 @@ function openForm(c){
       <button class="btn" id="sub">確認報名</button>
       <button class="btn ghost" type="button" id="back">返回</button>
     </form>`);
-  let veg = null, vegN = 0, inv = false;
-  const upd = () => {
-    $('#sv').textContent = seats;
-    $('#lunch1').hidden = seats > 1; $('#lunchN').hidden = seats === 1;
-    vegN = Math.min(vegN, seats); $('#vv').textContent = vegN; $('#mv').textContent = seats - vegN;
-  };
-  $('#mi').onclick = () => { if (seats>1) seats--; upd(); };
-  $('#pl').onclick = () => { if (seats<max) seats++; else toast(`最多 ${max} 位`); upd(); };
-  $('#vmi').onclick = () => { if (vegN>0) vegN--; upd(); };
-  $('#vpl').onclick = () => { if (vegN<seats) vegN++; upd(); };
+  let veg = null, inv = false;
   $('#lunch1').querySelectorAll('button').forEach(b => b.onclick = () => {
     veg = +b.dataset.v; $('#lunch1').querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b)); });
   $('#inv').querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -305,10 +293,10 @@ function openForm(c){
     const fd = Object.fromEntries(new FormData(e.target));
     if (!/^[0-9+\-\s]{8,15}$/.test(fd.phone)) return toast('請輸入正確的手機號碼');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fd.email)) return toast('請輸入正確的 Email');
-    if (seats === 1 && veg === null) return toast('請選擇午餐葷食或素食');
+    if (veg === null) return toast('請選擇午餐葷食或素食');
     if (inv && !fd.company.trim()) return toast('請填寫公司名稱');
     if (inv && !/^\d{8}$/.test(fd.taxId.trim())) return toast('統一編號應為 8 位數字');
-    fd.veg = seats === 1 ? veg : vegN; fd.invoice = inv;
+    fd.veg = veg; fd.invoice = inv;
     $('#sub').disabled = true; $('#sub').textContent = '送出中…';
     try {
       await api('register', { ...fd, seats, courseId:c.id });
@@ -327,7 +315,7 @@ function gcalUrl(c){
 }
 function showDone(c, seats){
   openSheet(`<div class="done"><div class="ok">✓</div><h2>報名成功！</h2>
-    <p style="color:var(--sub);font-size:14px;margin:0 0 6px">${esc(c.title)}<br>${fullTime(c)}・${seats} 位</p>
+    <p style="color:var(--sub);font-size:14px;margin:0 0 6px">${esc(c.title)}<br>${fullTime(c)}</p>
     <p style="color:var(--mute);font-size:13px;margin:0 0 18px">報名確認已傳到 LINE 聊天室，課前會自動提醒您 🔔</p>
     <button class="btn" id="cal">加入 Google 行事曆</button>
     <button class="btn ghost" id="close">完成</button></div>`);
@@ -354,7 +342,7 @@ function renderMine(){
       : `<span class="badge b-mine">${days<=1?'即將上課':days+' 天後'}</span>`;
     return `<div class="mycard ${cx?'cx':past?'past':''}">
       <h3>${esc(c.title)}${when}</h3>
-      <div class="meta"><span>🕐 ${fullTime(c)}</span>${c.location?`<span>📍 ${esc(c.location)}</span>`:''}<span>👤 ${esc(r.name)}・${r.seats} 位</span></div>
+      <div class="meta"><span>🕐 ${fullTime(c)}</span>${c.location?`<span>📍 ${esc(c.location)}</span>`:''}<span>👤 ${esc(r.name)}</span></div>
       ${!past && !cx ? `<div class="acts">${c.mapUrl?`<button data-map="${esc(c.mapUrl)}">📍 導航</button>`:''}<button data-cal="${r.id}">📅 行事曆</button><button data-cx="${r.id}">取消報名</button></div>`:''}
     </div>`;
   };
