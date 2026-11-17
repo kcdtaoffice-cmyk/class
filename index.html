@@ -212,7 +212,6 @@ function renderCourses(){
   for (const c of list) {
     const p = parseDate(c), m = `${p.y} 年 ${p.m} 月`;
     if (m !== lastM) { html += `<div class="month">${m}</div>`; lastM = m; }
-    const pct = c.capacity ? Math.min(100, c.taken / c.capacity * 100) : 0;
     const badge = mineIds.has(c.id) ? '<span class="badge b-mine">已報名</span>'
       : c.state==='full' ? '<span class="badge b-full">額滿</span>'
       : c.state==='closed' ? '<span class="badge b-closed">已截止</span>'
@@ -222,8 +221,7 @@ function renderCourses(){
       <div class="info">
         <h3>${c.tag?`<span class="badge b-tag">${esc(c.tag)}</span>`:''}${esc(c.title)}${badge}</h3>
         <div class="meta"><span>🕐 ${timeStr(c)}</span>${c.location?`<span>📍 ${esc(c.location)}</span>`:''}${c.instructor?`<span>👤 ${esc(c.instructor)}</span>`:''}</div>
-        <div class="foot"><div class="bar ${c.remaining<=3?'hot':''}"><i style="width:${pct}%"></i></div>
-          <span class="seat">${c.state==='open' ? `剩 ${c.remaining} 位` : `${c.taken}/${c.capacity}`}</span></div>
+      </div>
       </div></button>`;
   }
   $('#courses').innerHTML = html;
@@ -250,7 +248,6 @@ function openCourse(c){
       ${c.location?`<dt>地點</dt><dd>${esc(c.location)}${c.mapUrl?` · <a href="${esc(c.mapUrl)}" target="_blank">地圖</a>`:''}</dd>`:''}
       ${c.instructor?`<dt>講師</dt><dd>${esc(c.instructor)}</dd>`:''}
       <dt>費用</dt><dd>${c.price?`NT$ ${Number(c.price).toLocaleString()}`:'免費'}</dd>
-      <dt>名額</dt><dd>${c.capacity} 位（剩 ${c.remaining} 位）</dd>
       ${c.deadline?`<dt>截止</dt><dd>${esc(c.deadline)}</dd>`:''}
     </dl>
     ${c.description?`<div class="desc">${esc(c.description)}</div>`:''}
